@@ -2132,6 +2132,7 @@ void Catalog::createTable(
     removeTableFromMap(td.tableName, td.tableId, true);
     throw;
   }
+  // TODO: rollback if exception is raised
   if (!td.storageType.empty()) {
     ForeignStorageInterface::registerTable(this, getCurrentDB().dbId, td, cds);
   }
