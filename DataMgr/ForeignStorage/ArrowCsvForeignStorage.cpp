@@ -3,6 +3,7 @@
 #include "ArrowCsvForeignStorage.h"
 
 #include "Shared/Logger.h"
+#include "Shared/measure.h"
 
 #include <arrow/api.h>
 #include <arrow/csv/reader.h>
@@ -16,10 +17,15 @@
 struct ArrowFragment {
   int64_t sz;
   std::vector<std::shared_ptr<arrow::ArrayData>> chunks;
+  ~ArrowFragment() { chunks.clear(); }
 };
 
 std::map<std::array<int, 3>, std::vector<ArrowFragment>> g_columns;
 std::map<std::array<int, 3>, StringDictionary*> g_dictionaries;
+
+ArrowCsvForeignStorage::~ArrowCsvForeignStorage() {
+  g_columns.clear();
+}
 
 void ArrowCsvForeignStorage::append(
     const std::vector<ForeignStorageColumnBuffer>& column_buffers) {
@@ -205,8 +211,9 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
   ARROW_THROW_NOT_OK(r);
 
   std::shared_ptr<arrow::Table> arrowTable;
-  r = trp->Read(&arrowTable);
+  auto time = measure<>::execution([&]() { r = trp->Read(&arrowTable); });
   ARROW_THROW_NOT_OK(r);
+  LOG(INFO) << "Arrow reads" << info << " in " << time << "ms";
 
   arrow::Table& table = *arrowTable.get();
   int cln = 0, num_cols = table.num_columns();
@@ -263,10 +270,11 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
       int64_t varlen = 0;
       // for each arrow chunk
       for (int i = fragments[f].first, e = fragments[f].second; i < e; i++) {
+        arrow::Array* chunk = clp->chunk(i).get();
         if (c.columnType.is_dict_encoded_string()) {
           arrow::Int32Builder indexBuilder;
           auto dict = g_dictionaries[col_key];
-          auto stringArray = std::static_pointer_cast<arrow::StringArray>(clp->chunk(i));
+          auto stringArray = static_cast<arrow::StringArray*>(chunk);
           for (int i = 0; i < stringArray->length(); i++) {
             if (stringArray->IsNull(i) || empty ||
                 stringArray->null_count() == stringArray->length()) {
@@ -281,9 +289,9 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
           frag.chunks.emplace_back(ARROW_GET_DATA(indexArray));
           frag.sz += stringArray->length();
         } else {
-          frag.chunks.emplace_back(ARROW_GET_DATA(clp->chunk(i)));
-          frag.sz += clp->chunk(i)->length();
-          auto& buffers = ARROW_GET_DATA(clp->chunk(i))->buffers;
+          frag.chunks.push_back(ARROW_GET_DATA(chunk));
+          frag.sz += chunk->length();
+          auto& buffers = ARROW_GET_DATA(chunk)->buffers;
           if (!empty) {
             if (ctype == kTEXT) {
               if (buffers.size() <= 2) {
