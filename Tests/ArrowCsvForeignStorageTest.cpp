@@ -267,6 +267,13 @@ TEST(Unsupported, Syntax) {
                         "trips_with_headers_top1000.csv');"));
 }
 
+TEST(DecimalDataTest, DifferentSizesOfDecimal) {
+  run_ddl_statement(
+      "CREATE DATAFRAME fsi_decimal (decimal2 DECIMAL(4,1), decimal4 NUMERIC(9,2), "
+      "decimal8 DECIMAL(18,5)) from "
+      "'CSV:../../Tests/Import/datafiles/decimal_data.csv';");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
