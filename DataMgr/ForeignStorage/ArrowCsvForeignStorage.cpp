@@ -382,7 +382,7 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
   auto arrow_read_options = arrow::csv::ReadOptions::Defaults();
   arrow_read_options.use_threads = true;
 
-  arrow_read_options.block_size = 2 * 1024 * 1024;
+  arrow_read_options.block_size = 20 * 1024 * 1024;
   arrow_read_options.autogenerate_column_names = false;
   arrow_read_options.skip_rows = td.hasHeader ? (td.skipRows + 1) : td.skipRows;
   
