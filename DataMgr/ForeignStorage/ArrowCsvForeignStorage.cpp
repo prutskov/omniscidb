@@ -446,17 +446,17 @@ void ArrowCsvForeignStorage::createDecimalColumn(
           frag.chunks[i - fragments[f].first_chunk] = converted_chunk->data();
 
           chunk_offset += size;
-
-          auto b = mgr->createBuffer(key);
-          b->sql_type = c.columnType;
-          b->setSize(frag.sz * b->sql_type.get_size());
-          b->encoder.reset(Encoder::Create(b, c.columnType));
-          b->has_encoder = true;
-          if (!empty) {
-            deferUpdateStats(b, frag, tg);
-          }
-          b->encoder->setNumElems(frag.sz);
         }
+
+        auto b = mgr->createBuffer(key);
+        b->sql_type = c.columnType;
+        b->setSize(frag.sz * b->sql_type.get_size());
+        b->encoder.reset(Encoder::Create(b, c.columnType));
+        b->has_encoder = true;
+        if (!empty) {
+          deferUpdateStats(b, frag, tg);
+        }
+        b->encoder->setNumElems(frag.sz);
       }
     });
   });
