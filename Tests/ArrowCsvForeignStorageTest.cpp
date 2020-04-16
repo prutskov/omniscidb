@@ -290,8 +290,8 @@ TEST(DecimalDataTest, DifferentSizesOfDecimal) {
   run_ddl_statement(
       "CREATE DATAFRAME fsi_decimal (decimal2 DECIMAL(4,1), decimal4 NUMERIC(9,2), "
       "decimal8 DECIMAL(18,5)) from "
-      "'CSV:../../Tests/Import/datafiles/decimal_data.csv';");
-  check_table<double>("SELECT decimal2, decimal4, decimal8 FROM fsi_decimal",
+      "'CSV:../../Tests/Import/datafiles/decimal_data.csv' WITH(fragment_size=1);");
+  check_table<double>("SELECT decimal2, decimal4, decimal8 FROM fsi_decimal order by decimal2",
                       {{4, 0, 1.1},
                        {213.4, 2389341.23, 4857364039384.75638},
                        {999.9, 9384612.78, 2947583746581.92748}});
