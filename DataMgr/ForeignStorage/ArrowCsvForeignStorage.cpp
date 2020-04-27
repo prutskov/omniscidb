@@ -106,11 +106,7 @@ void setNulls(int8_t* data, int count) {
   T* dataT = reinterpret_cast<T*>(data);
   const T null_value = std::is_signed<T>::value ? std::numeric_limits<T>::min()
                                                 : std::numeric_limits<T>::max();
-  tbb::parallel_for(tbb::blocked_range<size_t>(0, count), [&](auto& r) {
-    for (auto i = r.begin(); i != r.end(); ++i) {
-      dataT[i] = null_value;
-    }
-  });
+  std::fill(dataT, dataT + count, null_value);
 }
 
 void generateSentinelValues(int8_t* data, const SQLTypeInfo& columnType, size_t count) {
@@ -766,26 +762,29 @@ void setNullValues(const std::vector<Frag>& fragments,
               tbb::blocked_range<size_t>(fragments[f].first_chunk,
                                          fragments[f].last_chunk + 1),
               [&](const tbb::blocked_range<size_t>& r1) {
-                for (auto i = r1.begin(); i != r1.end(); ++i) {
-                  auto chunk = arr_col_chunked_array->chunk(i).get();
+                for (auto chunk_index = r1.begin(); chunk_index != r1.end();
+                     ++chunk_index) {
+                  auto chunk = arr_col_chunked_array->chunk(chunk_index).get();
                   auto data = chunk->data()->buffers[1]->mutable_data();
                   T* dataT = reinterpret_cast<T*>(data);
                   const uint8_t* bitmap_data =
-                      arr_col_chunked_array->chunk(i)->null_bitmap_data();
+                      arr_col_chunked_array->chunk(chunk_index)->null_bitmap_data();
 
-                  const int64_t length_data = arr_col_chunked_array->chunk(i)->length();
-                  const int64_t length = length_data / 8;
-                  for (int64_t j = 0; j < length; ++j) {
+                  const int64_t length =
+                      arr_col_chunked_array->chunk(chunk_index)->length();
+                  const int64_t bitmap_length =
+                      arr_col_chunked_array->chunk(chunk_index)->null_bitmap()->size() -
+                      1;
+                  for (int64_t j = 0; j < bitmap_length; ++j) {
                     T* res = dataT + j * 8;
                     for (int8_t k = 0; k < 8; ++k) {
                       res[k] += null_value * ((~bitmap_data[j] >> k) & 1);
                     }
                   }
 
-                  if (length % 8) {
-                    for (int64_t j = length; j < length_data; ++j) {
-                      dataT[j] += null_value * ((~bitmap_data[j / 8] >> (j % 8)) & 1);
-                    }
+                  for (int64_t j = bitmap_length * 8; j < length; ++j) {
+                    dataT[j] +=
+                        null_value * ((~bitmap_data[bitmap_length] >> (j % 8)) & 1);
                   }
                 }
               });
