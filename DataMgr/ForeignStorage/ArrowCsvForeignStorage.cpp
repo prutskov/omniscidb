@@ -752,21 +752,6 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
           << arr_frags << " chunks, and " << fragments.size() << " fragments.";
 }
 
-template <typename T, typename V>
-void setBitMapNulls(const T& bitmap_val, size_t start_idx, V* data, V null_val) {
-  T inv_bitmap = ~bitmap_val;
-  int8_t cur_pos = -1;
-  while (inv_bitmap != 0) {
-    int32_t pos_of_null =
-        arrow::BitUtil::CountTrailingZeros(static_cast<uint64_t>(inv_bitmap)) + 1;
-    inv_bitmap >>= pos_of_null;
-    cur_pos += pos_of_null;
-
-    size_t idx = cur_pos + start_idx;
-    data[idx] = null_val;
-  }
-}
-
 template <typename T>
 void setNullValues(const std::vector<Frag>& fragments,
                    arrow::ChunkedArray* arr_col_chunked_array) {
@@ -782,53 +767,24 @@ void setNullValues(const std::vector<Frag>& fragments,
                                          fragments[f].last_chunk + 1),
               [&](const tbb::blocked_range<size_t>& r1) {
                 for (auto i = r1.begin(); i != r1.end(); ++i) {
-                  const size_t null_count = arr_col_chunked_array->chunk(i)->null_count();
+                  auto chunk = arr_col_chunked_array->chunk(i).get();
+                  auto data = chunk->data()->buffers[1]->mutable_data();
+                  T* dataT = reinterpret_cast<T*>(data);
+                  const uint8_t* bitmap_data =
+                      arr_col_chunked_array->chunk(i)->null_bitmap_data();
 
-                  if (null_count > 0) {
-                    auto chunk = arr_col_chunked_array->chunk(i).get();
-
-                    const uint64_t* null_bitmap_data = reinterpret_cast<const uint64_t*>(
-                        arr_col_chunked_array->chunk(i)->null_bitmap_data());
-
-                    auto data = chunk->data()->buffers[1]->mutable_data();
-                    T* dataT = reinterpret_cast<T*>(data);
-
-                    const size_t bitmap_length =
-                        arr_col_chunked_array->chunk(i)->null_bitmap()->size();
-
-                    const size_t bitmap_length8 = bitmap_length / 8;
-
-                    for (size_t j = 0; j < bitmap_length8; ++j) {
-                      setBitMapNulls(null_bitmap_data[j], 64 * j, dataT, null_value);
+                  const int64_t length_data = arr_col_chunked_array->chunk(i)->length();
+                  const int64_t length = length_data / 8;
+                  for (int64_t j = 0; j < length; ++j) {
+                    T* res = dataT + j * 8;
+                    for (int8_t k = 0; k < 8; ++k) {
+                      res[k] += null_value * ((~bitmap_data[j] >> k) & 1);
                     }
+                  }
 
-                    if (bitmap_length % 8 > 0) {
-                      const size_t n_last_bits =
-                          bitmap_length * 8 - arr_col_chunked_array->chunk(i)->length();
-
-                      const size_t n_last_bytes =
-                          n_last_bits > 0 ? bitmap_length % 8 - 1 : bitmap_length % 8;
-
-                      const uint8_t* last_bitmap_data =
-                          arr_col_chunked_array->chunk(i)->null_bitmap_data() +
-                          bitmap_length8 * 8;
-
-                      for (size_t j = 0; j < n_last_bytes; ++j) {
-                        setBitMapNulls(last_bitmap_data[j],
-                                       64 * bitmap_length8 + 8 * j,
-                                       dataT,
-                                       null_value);
-                      }
-
-                      uint8_t mask[] = {0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe};
-                      if (n_last_bits > 0) {
-                        uint8_t bitmap_val =
-                            last_bitmap_data[n_last_bytes] | mask[n_last_bits - 1];
-                        setBitMapNulls(bitmap_val,
-                                       64 * bitmap_length8 + 8 * n_last_bytes,
-                                       dataT,
-                                       null_value);
-                      }
+                  if (length % 8) {
+                    for (int64_t j = length; j < length_data; ++j) {
+                      dataT[j] += null_value * ((~bitmap_data[j / 8] >> (j % 8)) & 1);
                     }
                   }
                 }
