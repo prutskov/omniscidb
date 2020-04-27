@@ -775,10 +775,11 @@ void setNullValues(const std::vector<Frag>& fragments,
                   const int64_t bitmap_length =
                       arr_col_chunked_array->chunk(chunk_index)->null_bitmap()->size() -
                       1;
-                  for (int64_t j = 0; j < bitmap_length; ++j) {
-                    T* res = dataT + j * 8;
-                    for (int8_t k = 0; k < 8; ++k) {
-                      res[k] += null_value * ((~bitmap_data[j] >> k) & 1);
+                  for (int64_t bitmap_idx = 0; bitmap_idx < bitmap_length; ++bitmap_idx) {
+                    T* res = dataT + bitmap_idx * 8;
+                    for (int8_t bitmap_offset = 0; bitmap_offset < 8; ++bitmap_offset) {
+                      res[bitmap_offset] +=
+                          null_value * ((~bitmap_data[bitmap_idx] >> bitmap_offset) & 1);
                     }
                   }
 
