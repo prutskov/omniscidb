@@ -56,6 +56,7 @@
 #include "QueryEngine/Execute.h"
 #include "QueryEngine/TableOptimizer.h"
 
+#include "Catalog/DataframeTableDescriptor.h"
 #include "DataMgr/FileMgr/FileMgr.h"
 #include "DataMgr/FileMgr/GlobalFileMgr.h"
 #include "DataMgr/ForeignStorage/ForeignStorageInterface.h"
@@ -2765,16 +2766,16 @@ void Catalog::createShardedTable(
     const list<ColumnDescriptor>& cols,
     const std::vector<Parser::SharedDictionaryDef>& shared_dict_defs) {
   cat_write_lock write_lock(this);
-
+  const DataframeTableDescriptor& dtd = static_cast<const DataframeTableDescriptor&>(td);
   /* create logical table */
-  TableDescriptor tdl(td);
+  DataframeTableDescriptor tdl(dtd);
   createTable(tdl, cols, shared_dict_defs, true);  // create logical table
   int32_t logical_tb_id = tdl.tableId;
 
   /* create physical tables and link them to the logical table */
   std::vector<int32_t> physicalTables;
   for (int32_t i = 1; i <= td.nShards; i++) {
-    TableDescriptor tdp(td);
+    DataframeTableDescriptor tdp(dtd);
     tdp.tableName = generatePhysicalTableName(tdp.tableName, i);
     tdp.shard = i - 1;
     createTable(tdp, cols, shared_dict_defs, false);  // create physical table
