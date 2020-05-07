@@ -487,10 +487,6 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
                                            const std::list<ColumnDescriptor>& cols,
                                            Data_Namespace::AbstractBufferMgr* mgr) {
   const DataframeTableDescriptor& td = static_cast<const DataframeTableDescriptor&>(ttd);
-
-  printf("\nregisterTable\n");
-  printf("delimiter: %s\n", td.delimiter.c_str());
-  printf("skip_rows: %d\n", td.skipRows);
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_parse_options = arrow::csv::ParseOptions::Defaults();
   arrow_parse_options.quoting = false;
