@@ -25,6 +25,7 @@
 #include <array>
 #include <future>
 
+#include "Catalog/DataframeTableDescriptor.h"
 #include "DataMgr/ForeignStorage/ForeignStorageInterface.h"
 #include "DataMgr/StringNoneEncoder.h"
 #include "QueryEngine/ArrowResultSet.h"
@@ -57,7 +58,7 @@ class ArrowCsvForeignStorage : public PersistentForeignStorageInterface {
   void registerTable(Catalog_Namespace::Catalog* catalog,
                      std::pair<int, int> table_key,
                      const std::string& type,
-                     const TableDescriptor& td,
+                     const DataframeTableDescriptor& td,
                      const std::list<ColumnDescriptor>& cols,
                      Data_Namespace::AbstractBufferMgr* mgr) override;
 
@@ -482,10 +483,9 @@ void ArrowCsvForeignStorage::createDecimalColumn(
 void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
                                            std::pair<int, int> table_key,
                                            const std::string& info,
-                                           const TableDescriptor& td,
+                                           const DataframeTableDescriptor& td,
                                            const std::list<ColumnDescriptor>& cols,
                                            Data_Namespace::AbstractBufferMgr* mgr) {
-  // tbb::task_scheduler_init init(1);
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_parse_options = arrow::csv::ParseOptions::Defaults();
   arrow_parse_options.quoting = false;

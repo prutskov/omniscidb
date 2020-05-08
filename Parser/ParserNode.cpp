@@ -43,6 +43,7 @@
 
 #include "Analyzer/RangeTableEntry.h"
 #include "Catalog/Catalog.h"
+#include "Catalog/DataframeTableDescriptor.h"
 #include "Catalog/SharedDictionaryValidator.h"
 #include "Fragmenter/InsertOrderFragmenter.h"
 #include "Fragmenter/SortedOrderFragmenter.h"
@@ -77,6 +78,11 @@ using namespace std::string_literals;
 using TableDefFuncPtr = boost::function<void(TableDescriptor&,
                                              const NameValueAssign*,
                                              const std::list<ColumnDescriptor>& columns)>;
+
+using DataframeDefFuncPtr =
+    boost::function<void(DataframeTableDescriptor&,
+                         const NameValueAssign*,
+                         const std::list<ColumnDescriptor>& columns)>;
 
 namespace Parser {
 std::shared_ptr<Analyzer::Expr> NullLiteral::analyze(
@@ -1984,6 +1990,13 @@ decltype(auto) get_frag_size_def(TableDescriptor& td,
                                         [&td](const auto val) { td.maxFragRows = val; });
 }
 
+decltype(auto) get_frag_size_dataframe_def(DataframeTableDescriptor& td,
+                                           const NameValueAssign* p,
+                                           const std::list<ColumnDescriptor>& columns) {
+  return get_property_value<IntLiteral>(p,
+                                        [&td](const auto val) { td.maxFragRows = val; });
+}
+
 decltype(auto) get_max_chunk_size_def(TableDescriptor& td,
                                       const NameValueAssign* p,
                                       const std::list<ColumnDescriptor>& columns) {
@@ -1991,7 +2004,15 @@ decltype(auto) get_max_chunk_size_def(TableDescriptor& td,
                                         [&td](const auto val) { td.maxChunkSize = val; });
 }
 
-decltype(auto) get_delimiter_def(TableDescriptor& td,
+decltype(auto) get_max_chunk_size_dataframe_def(
+    DataframeTableDescriptor& td,
+    const NameValueAssign* p,
+    const std::list<ColumnDescriptor>& columns) {
+  return get_property_value<IntLiteral>(p,
+                                        [&td](const auto val) { td.maxChunkSize = val; });
+}
+
+decltype(auto) get_delimiter_def(DataframeTableDescriptor& td,
                                  const NameValueAssign* p,
                                  const std::list<ColumnDescriptor>& columns) {
   return get_property_value<StringLiteral>(p, [&td](const auto val) {
@@ -2002,7 +2023,7 @@ decltype(auto) get_delimiter_def(TableDescriptor& td,
   });
 }
 
-decltype(auto) get_header_def(TableDescriptor& td,
+decltype(auto) get_header_def(DataframeTableDescriptor& td,
                               const NameValueAssign* p,
                               const std::list<ColumnDescriptor>& columns) {
   return get_property_value<StringLiteral>(p, [&td](const auto val) {
@@ -2028,7 +2049,7 @@ decltype(auto) get_max_rows_def(TableDescriptor& td,
   return get_property_value<IntLiteral>(p, [&td](const auto val) { td.maxRows = val; });
 }
 
-decltype(auto) get_skip_rows_def(TableDescriptor& td,
+decltype(auto) get_skip_rows_def(DataframeTableDescriptor& td,
                                  const NameValueAssign* p,
                                  const std::list<ColumnDescriptor>& columns) {
   return get_property_value<IntLiteral>(p, [&td](const auto val) { td.skipRows = val; });
@@ -2113,14 +2134,14 @@ void get_table_definitions(TableDescriptor& td,
   return it->second(td, p.get(), columns);
 }
 
-static const std::map<const std::string, const TableDefFuncPtr> dataframeDefFuncMap = {
-    {"fragment_size"s, get_frag_size_def},
-    {"max_chunk_size"s, get_max_chunk_size_def},
-    {"skip_rows"s, get_skip_rows_def},
-    {"delimiter"s, get_delimiter_def},
-    {"header"s, get_header_def}};
+static const std::map<const std::string, const DataframeDefFuncPtr> dataframeDefFuncMap =
+    {{"fragment_size"s, get_frag_size_dataframe_def},
+     {"max_chunk_size"s, get_max_chunk_size_dataframe_def},
+     {"skip_rows"s, get_skip_rows_def},
+     {"delimiter"s, get_delimiter_def},
+     {"header"s, get_header_def}};
 
-void get_dataframe_definitions(TableDescriptor& td,
+void get_dataframe_definitions(DataframeTableDescriptor& td,
                                const std::unique_ptr<NameValueAssign>& p,
                                const std::list<ColumnDescriptor>& columns) {
   const auto it =
@@ -2242,7 +2263,7 @@ void CreateDataframeStmt::execute(const Catalog_Namespace::SessionInfo& session)
   if (catalog.getMetadataForTable(*table_) != nullptr) {
     throw std::runtime_error("Table " + *table_ + " already exists.");
   }
-  TableDescriptor td;
+  DataframeTableDescriptor td;
   std::list<ColumnDescriptor> columns;
   std::vector<SharedDictionaryDef> shared_dict_defs;
 
