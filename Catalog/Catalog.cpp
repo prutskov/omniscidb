@@ -2094,8 +2094,8 @@ void Catalog::createTable(
     if (td.persistenceLevel == Data_Namespace::MemoryLevel::DISK_LEVEL) {
       throw std::runtime_error("Only temporary tables can be backed by foreign storage.");
     }
-    DataframeTableDescriptor& dtd = static_cast<DataframeTableDescriptor&>(td);
-    ForeignStorageInterface::prepareTable(getCurrentDB().dbId, dtd, cds);
+    DataframeTableDescriptor& df_td = static_cast<DataframeTableDescriptor&>(td);
+    ForeignStorageInterface::prepareTable(getCurrentDB().dbId, df_td, cds);
   }
 
   for (auto cd : cds) {
@@ -2279,8 +2279,8 @@ void Catalog::createTable(
     addTableToMap(&td, cds, dds);
     calciteMgr_->updateMetadata(currentDB_.dbName, td.tableName);
     if (!td.storageType.empty() && td.storageType != StorageType::FOREIGN_TABLE) {
-      DataframeTableDescriptor& dtd = static_cast<DataframeTableDescriptor&>(td);
-      ForeignStorageInterface::registerTable(this, dtd, cds);
+      DataframeTableDescriptor& df_td = static_cast<DataframeTableDescriptor&>(td);
+      ForeignStorageInterface::registerTable(this, df_td, cds);
     }
   } catch (std::exception& e) {
     sqliteConnector_.query("ROLLBACK TRANSACTION");
@@ -2768,21 +2768,21 @@ void Catalog::createShardedTable(
     const list<ColumnDescriptor>& cols,
     const std::vector<Parser::SharedDictionaryDef>& shared_dict_defs) {
   cat_write_lock write_lock(this);
-  DataframeTableDescriptor* dtd = dynamic_cast<DataframeTableDescriptor*>(&td);
-  bool isDataframe = dtd ? true : false;
+  DataframeTableDescriptor* df_td = dynamic_cast<DataframeTableDescriptor*>(&td);
+  bool isDataframe = df_td ? true : false;
   if (!isDataframe) {
-    dtd = new DataframeTableDescriptor(td);
+    df_td = new DataframeTableDescriptor(td);
   }
 
   /* create logical table */
-  DataframeTableDescriptor tdl(*dtd);
+  DataframeTableDescriptor tdl(*df_td);
   createTable(tdl, cols, shared_dict_defs, true);  // create logical table
   int32_t logical_tb_id = tdl.tableId;
 
   /* create physical tables and link them to the logical table */
   std::vector<int32_t> physicalTables;
   for (int32_t i = 1; i <= td.nShards; i++) {
-    DataframeTableDescriptor tdp(*dtd);
+    DataframeTableDescriptor tdp(*df_td);
     tdp.tableName = generatePhysicalTableName(tdp.tableName, i);
     tdp.shard = i - 1;
     createTable(tdp, cols, shared_dict_defs, false);  // create physical table
@@ -2803,7 +2803,7 @@ void Catalog::createShardedTable(
     }
   }
   if (!isDataframe) {
-    delete dtd;
+    delete df_td;
   }
 }
 
