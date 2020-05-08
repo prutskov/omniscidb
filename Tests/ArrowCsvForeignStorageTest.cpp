@@ -446,6 +446,22 @@ TEST_F(DecimalTest, FragmentsTableDecimal) {
       "SELECT " + col_names + " FROM decimal_table ORDER BY var_1;");
 }
 
+TEST(DataframeOptionsTest, SkipRowsTest) {
+  ASSERT_NO_THROW(
+      run_ddl_statement("CREATE DATAFRAME opt_dataframe (int4 INTEGER, int8 BIGINT) FROM "
+                        "'CSV:../../Tests/Import/datafiles/dataframe_options.csv' with "
+                        "(DELIMITER='|', SKIP_ROWS=2);"));
+  ASSERT_EQ(4, v<int64_t>(run_simple_agg("SELECT sum(int4) FROM opt_dataframe;")));
+}
+
+TEST(DataframeOptionsTest, HeaderlessTest) {
+  ASSERT_NO_THROW(run_ddl_statement(
+      "CREATE DATAFRAME opt_dataframe2 (int4 INTEGER, int8 BIGINT) FROM "
+      "'CSV:../../Tests/Import/datafiles/dataframe_options.csv' with (DELIMITER='|', "
+      "SKIP_ROWS=3, HEADER='false');"));
+  ASSERT_EQ(8, v<int64_t>(run_simple_agg("SELECT sum(int8) FROM opt_dataframe2;")));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
