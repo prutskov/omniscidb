@@ -18,7 +18,6 @@
 
 #include "../AbstractBufferMgr.h"
 #include "Catalog/Catalog.h"
-#include "Catalog/DataframeTableDescriptor.h"
 
 #include <unordered_map>
 
@@ -44,7 +43,7 @@ class PersistentForeignStorageInterface {
   virtual void registerTable(Catalog_Namespace::Catalog* catalog,
                              std::pair<int, int> table_key,
                              const std::string& type,
-                             const DataframeTableDescriptor& td,
+                             const TableDescriptor& td,
                              const std::list<ColumnDescriptor>& cols,
                              Data_Namespace::AbstractBufferMgr* mgr) = 0;
   virtual std::string getType() const = 0;
@@ -229,11 +228,11 @@ class ForeignStorageInterface {
 
   //! prepare table options and modify columns
   static void prepareTable(const int db_id,
-                           DataframeTableDescriptor& td,
+                           TableDescriptor& td,
                            std::list<ColumnDescriptor>& cols);
   //! ids are created
   static void registerTable(Catalog_Namespace::Catalog* catalog,
-                            const DataframeTableDescriptor& td,
+                            const TableDescriptor& td,
                             const std::list<ColumnDescriptor>& cols);
 
  private:

@@ -168,7 +168,7 @@ std::pair<std::string, std::string> parseStorageType(const std::string& type) {
 }
 
 void ForeignStorageInterface::prepareTable(const int db_id,
-                                           DataframeTableDescriptor& td,
+                                           TableDescriptor& td,
                                            std::list<ColumnDescriptor>& cols) {
   auto type = parseStorageType(td.storageType);
   std::unique_lock<std::mutex> persistent_storage_interfaces_lock(
@@ -183,7 +183,7 @@ void ForeignStorageInterface::prepareTable(const int db_id,
 }
 
 void ForeignStorageInterface::registerTable(Catalog_Namespace::Catalog* catalog,
-                                            const DataframeTableDescriptor& td,
+                                            const TableDescriptor& td,
                                             const std::list<ColumnDescriptor>& cols) {
   const int table_id = td.tableId;
   auto type = parseStorageType(td.storageType);
