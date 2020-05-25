@@ -486,7 +486,8 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
                                            const TableDescriptor& td,
                                            const std::list<ColumnDescriptor>& cols,
                                            Data_Namespace::AbstractBufferMgr* mgr) {
-  const DataframeTableDescriptor* df_td = dynamic_cast<const DataframeTableDescriptor*>(&td);
+  const DataframeTableDescriptor* df_td =
+      dynamic_cast<const DataframeTableDescriptor*>(&td);
   bool isDataframe = df_td ? true : false;
   if (!isDataframe) {
     df_td = new DataframeTableDescriptor(td);
@@ -502,7 +503,8 @@ void ArrowCsvForeignStorage::registerTable(Catalog_Namespace::Catalog* catalog,
 
   arrow_read_options.block_size = 20 * 1024 * 1024;
   arrow_read_options.autogenerate_column_names = false;
-  arrow_read_options.skip_rows = df_td->hasHeader ? (df_td->skipRows + 1) : df_td->skipRows;
+  arrow_read_options.skip_rows =
+      df_td->hasHeader ? (df_td->skipRows + 1) : df_td->skipRows;
 
   auto arrow_convert_options = arrow::csv::ConvertOptions::Defaults();
   arrow_convert_options.check_utf8 = false;
