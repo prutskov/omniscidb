@@ -156,7 +156,10 @@ void ArrowForeignStorageBase::setNullValues(const std::vector<Frag>& fragments,
                     // it means we will insert sentinel values in read function
                     continue;
                   }
-                  auto data = chunk->data()->buffers[1]->mutable_data();
+                  // We can not use mutable_data in case of shared access
+                  // This is not realy safe, but it is the only way to do this without copiing
+                  // TODO: add support for sentinel values to read_csv
+                  auto data = const_cast<uint8_t*>(chunk->data()->buffers[1]->data());
                   if (data) {  // TODO: to be checked and possibly reimplemented
                     // CHECK(data) << " is null";
                     T* dataT = reinterpret_cast<T*>(data);
@@ -765,7 +768,7 @@ static SQLTypeInfo getOmnisciType(const arrow::DataType& type) {
       return SQLTypeInfo(kDOUBLE, false);
     case Type::STRING: {
       auto type = SQLTypeInfo(kTEXT, false, kENCODING_DICT);
-      // this is needed because createTable forces type.size to be equal to 
+      // this is needed because createTable forces type.size to be equal to
       // comp_param / 8, no matter what type.size you set here
       type.set_comp_param(sizeof(uint32_t) * 8);
       return type;
