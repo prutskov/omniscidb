@@ -25,6 +25,7 @@
 #include <array>
 #include <future>
 
+#include <boost/integer.hpp>
 #include "Catalog/DataframeTableDescriptor.h"
 #include "DataMgr/ForeignStorage/ForeignStorageInterface.h"
 #include "DataMgr/StringNoneEncoder.h"
@@ -32,7 +33,6 @@
 #include "Shared/ArrowUtil.h"
 #include "Shared/Logger.h"
 #include "Shared/measure.h"
-
 struct Frag {
   int first_chunk;         // index of the first chunk assigned to the fragment
   int first_chunk_offset;  // offset from the begining of the first chunk
@@ -157,7 +157,8 @@ void ArrowForeignStorageBase::setNullValues(const std::vector<Frag>& fragments,
                     continue;
                   }
                   // We can not use mutable_data in case of shared access
-                  // This is not realy safe, but it is the only way to do this without copiing
+                  // This is not realy safe, but it is the only way to do this without
+                  // copiing
                   // TODO: add support for sentinel values to read_csv
                   auto data = const_cast<uint8_t*>(chunk->data()->buffers[1]->data());
                   if (data) {  // TODO: to be checked and possibly reimplemented
@@ -167,19 +168,39 @@ void ArrowForeignStorageBase::setNullValues(const std::vector<Frag>& fragments,
                     const int64_t length = chunk->length();
                     const int64_t bitmap_length = chunk->null_bitmap()->size() - 1;
 
+                    // We use this type to store binary representation of value
+                    using mask_t = typename boost::uint_t<sizeof(T) * 8>::least;
+
                     for (int64_t bitmap_idx = 0; bitmap_idx < bitmap_length;
                          ++bitmap_idx) {
                       T* res = dataT + bitmap_idx * 8;
                       for (int8_t bitmap_offset = 0; bitmap_offset < 8; ++bitmap_offset) {
-                        res[bitmap_offset] +=
-                            null_value *
-                            ((~bitmap_data[bitmap_idx] >> bitmap_offset) & 1);
+                        auto is_valid =
+                            (~bitmap_data[bitmap_length] >> bitmap_offset) & 1;
+                        mask_t mask = 0;
+                        // 0 if mask is 1, ~0 if mask is 0
+                        mask -= ~is_valid & 1;
+
+                        mask_t* data_binary =
+                            reinterpret_cast<mask_t*>(res + bitmap_offset);
+                        // assign 0 to res, if it is null
+                        *data_binary &= mask;
+
+                        res[bitmap_offset] += null_value * is_valid;
                       }
                     }
 
                     for (int64_t j = bitmap_length * 8; j < length; ++j) {
-                      dataT[j] +=
-                          null_value * ((~bitmap_data[bitmap_length] >> (j % 8)) & 1);
+                      auto is_valid = (~bitmap_data[bitmap_length] >> (j % 8)) & 1;
+                      mask_t mask = 0;
+                      // 0 if mask is 1, ~0 if mask is 0
+                      mask -= ~is_valid & 1;
+
+                      mask_t* data_binary = reinterpret_cast<mask_t*>(dataT + j);
+                      // assign 0 to res, if it is null
+                      *data_binary &= mask;
+
+                      dataT[j] += null_value * is_valid;;
                     }
                   }
                 }
