@@ -25,6 +25,7 @@
 #include <array>
 #include <future>
 
+#include <boost/integer.hpp>
 #include "Catalog/DataframeTableDescriptor.h"
 #include "DataMgr/ForeignStorage/ForeignStorageInterface.h"
 #include "DataMgr/StringNoneEncoder.h"
@@ -32,7 +33,6 @@
 #include "Shared/ArrowUtil.h"
 #include "Shared/Logger.h"
 #include "Shared/measure.h"
-
 struct Frag {
   int first_chunk;         // index of the first chunk assigned to the fragment
   int first_chunk_offset;  // offset from the begining of the first chunk
@@ -157,7 +157,8 @@ void ArrowForeignStorageBase::setNullValues(const std::vector<Frag>& fragments,
                     continue;
                   }
                   // We can not use mutable_data in case of shared access
-                  // This is not realy safe, but it is the only way to do this without copiing
+                  // This is not realy safe, but it is the only way to do this without
+                  // copiing
                   // TODO: add support for sentinel values to read_csv
                   auto data = const_cast<uint8_t*>(chunk->data()->buffers[1]->data());
                   if (data) {  // TODO: to be checked and possibly reimplemented
@@ -171,15 +172,17 @@ void ArrowForeignStorageBase::setNullValues(const std::vector<Frag>& fragments,
                          ++bitmap_idx) {
                       T* res = dataT + bitmap_idx * 8;
                       for (int8_t bitmap_offset = 0; bitmap_offset < 8; ++bitmap_offset) {
-                        res[bitmap_offset] +=
-                            null_value *
-                            ((~bitmap_data[bitmap_idx] >> bitmap_offset) & 1);
+                        auto is_valid =
+                            (~bitmap_data[bitmap_length] >> bitmap_offset) & 1;
+                        auto val = is_valid ? res[bitmap_offset] : null_value;
+                        res[bitmap_offset] = val;
                       }
                     }
 
                     for (int64_t j = bitmap_length * 8; j < length; ++j) {
-                      dataT[j] +=
-                          null_value * ((~bitmap_data[bitmap_length] >> (j % 8)) & 1);
+                      auto is_valid = (~bitmap_data[bitmap_length] >> (j % 8)) & 1;
+                      auto val = is_valid ? dataT[j] : null_value;
+                      dataT[j] = val;
                     }
                   }
                 }
